@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../core/logger_service.dart';
 import '../../models/app_config.dart';
 import '../../models/log_entry.dart';
@@ -14,6 +16,18 @@ class SidikJariService {
 
   bool isLoggedIn = false;
   final Map<String, DateTime> _recentRequests = {};
+
+  /// A bare filename (the default, e.g. "sidikjari-autofill.exe") is
+  /// resolved next to this agent's own executable — mirrors the original
+  /// sidikjari-agent's `WORKING_DIR = path.dirname(process.execPath)`.
+  /// An absolute (or explicitly relative) path from Settings is used as-is.
+  String resolveHelperPath(String configured) {
+    if (p.isAbsolute(configured) || configured.contains(p.separator)) {
+      return configured;
+    }
+    final exeDir = p.dirname(Platform.resolvedExecutable);
+    return p.join(exeDir, configured);
+  }
 
   bool isDuplicateRequest(String identifier) {
     final now = DateTime.now();
@@ -97,13 +111,23 @@ class SidikJariService {
     try {
       await forceFocusWindow();
 
+      final helperPath = resolveHelperPath(cfg.helperExePath);
+
+      if (!await File(helperPath).exists()) {
+        LoggerService.instance.error(
+          LogSource.sidikJari,
+          'Helper tidak ditemukan di "$helperPath". Cek Settings > Path Helper Auto-Fill.',
+        );
+        return false;
+      }
+
       LoggerService.instance.info(
         LogSource.sidikJari,
-        'Menjalankan helper auto-fill (user=$username, skipLogin=$skipLogin)...',
+        'Menjalankan helper "$helperPath" (user=$username, skipLogin=$skipLogin)...',
       );
 
       final process = await Process.start(
-        cfg.helperExePath,
+        helperPath,
         [username, password, noBpjs, skipLogin.toString()],
         runInShell: true,
       );
@@ -252,7 +276,7 @@ class SidikJariService {
       'status': 'berjalan',
       'service': 'Sidikjari Service (Base64 Focus)',
       'port': cfg.sidikJariPort,
-      'helper_path': cfg.helperExePath,
+      'helper_path': resolveHelperPath(cfg.helperExePath),
       'app_running': appRunning,
       'logged_in': isLoggedIn,
     };

@@ -93,7 +93,8 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  Widget _field(String key, String label, {bool obscure = false}) {
+  Widget _field(String key, String label,
+      {bool obscure = false, String? helperText}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -101,6 +102,8 @@ class _SettingsTabState extends State<SettingsTab> {
         obscureText: obscure,
         decoration: InputDecoration(
           labelText: label,
+          helperText: helperText,
+          helperMaxLines: 2,
           border: const OutlineInputBorder(),
           isDense: true,
         ),
@@ -142,7 +145,12 @@ class _SettingsTabState extends State<SettingsTab> {
           ]),
           _section('Pengaturan SidikJari BPJS', [
             _field('afterExePath', 'Path After.exe'),
-            _field('helperExePath', 'Path Helper Auto-Fill (exe / script)'),
+            _field(
+              'helperExePath',
+              'Path Helper Auto-Fill (exe / script)',
+              helperText: 'Nama file saja = dicari otomatis di folder aplikasi ini. '
+                  'Isi path lengkap kalau helper ada di lokasi lain.',
+            ),
             _field('bpjsUsername', 'Username Login BPJS'),
             _field('bpjsPassword', 'Password BPJS', obscure: true),
           ]),
