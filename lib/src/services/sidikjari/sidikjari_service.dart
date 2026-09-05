@@ -1,14 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:path/path.dart' as p;
 
 import '../../core/logger_service.dart';
 import '../../models/app_config.dart';
 import '../../models/log_entry.dart';
+import 'windows_automation_script.dart';
 
-/// Ports sidikjari-agent/index.js: process check, "NUCLEAR" PowerShell
-/// window-focus trick, and the auto-fill helper launcher.
+/// Opens the BPJS SidikJari application and performs its complete UI
+/// automation directly. The only external executable used is Windows'
+/// built-in PowerShell; no Python/AutoHotkey/helper distribution is required.
 class SidikJariService {
   final AppConfig Function() getConfig;
 
@@ -16,18 +17,7 @@ class SidikJariService {
 
   bool isLoggedIn = false;
   final Map<String, DateTime> _recentRequests = {};
-
-  /// A bare filename (the default, e.g. "sidikjari-autofill.exe") is
-  /// resolved next to this agent's own executable — mirrors the original
-  /// sidikjari-agent's `WORKING_DIR = path.dirname(process.execPath)`.
-  /// An absolute (or explicitly relative) path from Settings is used as-is.
-  String resolveHelperPath(String configured) {
-    if (p.isAbsolute(configured) || configured.contains(p.separator)) {
-      return configured;
-    }
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-    return p.join(exeDir, configured);
-  }
+  Future<void> _automationTail = Future<void>.value();
 
   bool isDuplicateRequest(String identifier) {
     final now = DateTime.now();
@@ -42,119 +32,144 @@ class SidikJariService {
     return false;
   }
 
+  /// Shelf can serve requests concurrently, while desktop input must never
+  /// overlap. Queue every operation that manipulates the BPJS window.
+  Future<T> _enqueue<T>(Future<T> Function() action) {
+    final result = Completer<T>();
+    final previous = _automationTail;
+    final finished = Completer<void>();
+    _automationTail = finished.future;
+
+    () async {
+      try {
+        await previous;
+      } catch (_) {
+        // A failed earlier request must not poison the queue.
+      }
+
+      try {
+        result.complete(await action());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      } finally {
+        finished.complete();
+      }
+    }();
+
+    return result.future;
+  }
+
   Future<bool> checkAppRunning() async {
     if (!Platform.isWindows) return false;
     try {
-      final result = await Process.run(
-        'tasklist',
-        ['/FI', 'IMAGENAME eq After.exe'],
-      );
+      final result = await Process.run('tasklist', [
+        '/FI',
+        'IMAGENAME eq After.exe',
+      ]);
       return (result.stdout as String).contains('After.exe');
     } catch (_) {
       return false;
     }
   }
 
-  Future<void> forceFocusWindow() async {
-    LoggerService.instance.info(
-      LogSource.sidikJari,
-      'Membawa window After.exe ke depan (mode NUCLEAR)...',
-    );
-
-    const psScript = r'''
-    $code = '
-      [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-      [DllImport("user32.dll")] public static extern int SetForegroundWindow(IntPtr hWnd);
-      [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-    '
-    $type = Add-Type -MemberDefinition $code -Name Win32S -Namespace Native -PassThru
-    $proc = Get-Process -Name "After" -ErrorAction SilentlyContinue
-    if ($proc) {
-        $hwnd = $proc.MainWindowHandle
-        $type::ShowWindowAsync($hwnd, 6)
-        Start-Sleep -Milliseconds 50
-        $type::ShowWindowAsync($hwnd, 9)
-        $type::SetWindowPos($hwnd, -1, 0, 0, 0, 0, 0x0043)
-        $type::SetWindowPos($hwnd, -2, 0, 0, 0, 0, 0x0043)
-        $type::SetForegroundWindow($hwnd)
-    }
-    ''';
-
-    final encoded = base64.encode(utf16leBytes(psScript));
-
-    try {
-      await Process.run('powershell', ['-EncodedCommand', encoded]);
-    } catch (e) {
-      LoggerService.instance.warning(
-        LogSource.sidikJari,
-        'Gagal force focus window: $e',
-      );
-    }
-  }
-
-  static List<int> utf16leBytes(String s) {
+  static List<int> utf16leBytes(String value) {
     final bytes = <int>[];
-    for (final codeUnit in s.codeUnits) {
+    for (final codeUnit in value.codeUnits) {
       bytes.add(codeUnit & 0xFF);
       bytes.add((codeUnit >> 8) & 0xFF);
     }
     return bytes;
   }
 
-  Future<bool> runHelper({
+  Future<bool> runIntegratedAutomation({
     required String username,
     required String password,
-    required String noBpjs,
-    required bool skipLogin,
+    required String identifier,
+    required bool useBpjs,
   }) async {
-    final cfg = getConfig();
+    Process? process;
     try {
-      await forceFocusWindow();
+      LoggerService.instance.info(
+        LogSource.sidikJari,
+        'Menjalankan auto-fill terintegrasi...',
+      );
 
-      final helperPath = resolveHelperPath(cfg.helperExePath);
+      final encoded = base64.encode(
+        utf16leBytes(windowsSidikJariAutomationScript),
+      );
+      process = await Process.start(
+        'powershell.exe',
+        [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-STA',
+          '-WindowStyle',
+          'Hidden',
+          '-EncodedCommand',
+          encoded,
+        ],
+        environment: {
+          'RSSG_SIDIKJARI_USERNAME': username,
+          'RSSG_SIDIKJARI_PASSWORD': password,
+          'RSSG_SIDIKJARI_IDENTIFIER': identifier,
+          'RSSG_SIDIKJARI_IDENTIFIER_TYPE': useBpjs ? 'BPJS' : 'NIK',
+        },
+        includeParentEnvironment: true,
+        runInShell: false,
+      );
 
-      if (!await File(helperPath).exists()) {
+      final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+      final stderrFuture = process.stderr.transform(utf8.decoder).join();
+      var timedOut = false;
+      final exitCode = await process.exitCode.timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          timedOut = true;
+          process?.kill();
+          return -1;
+        },
+      );
+      final stdout = (await stdoutFuture).trim();
+      final stderr = (await stderrFuture).trim();
+
+      for (final line in const LineSplitter().convert(stdout)) {
+        if (line.trim().isNotEmpty) {
+          LoggerService.instance.info(LogSource.sidikJari, line.trim());
+        }
+      }
+
+      if (timedOut) {
         LoggerService.instance.error(
           LogSource.sidikJari,
-          'Helper tidak ditemukan di "$helperPath". Cek Settings > Path Helper Auto-Fill.',
+          'Auto-fill dihentikan karena melewati batas waktu 60 detik.',
         );
         return false;
       }
 
-      LoggerService.instance.info(
-        LogSource.sidikJari,
-        'Menjalankan helper "$helperPath" (user=$username, skipLogin=$skipLogin)...',
-      );
+      if (exitCode != 0) {
+        LoggerService.instance.error(
+          LogSource.sidikJari,
+          stderr.isEmpty
+              ? 'Auto-fill gagal dengan exit code $exitCode.'
+              : 'Auto-fill gagal: $stderr',
+        );
+        return false;
+      }
 
-      final process = await Process.start(
-        helperPath,
-        [username, password, noBpjs, skipLogin.toString()],
-        runInShell: true,
-      );
-
-      process.stdout.transform(utf8.decoder).listen((data) {
-        final line = data.trim();
-        if (line.isNotEmpty) {
-          LoggerService.instance.info(LogSource.sidikJari, '[HELPER] $line');
-        }
-      });
-      process.stderr.transform(utf8.decoder).listen((data) {
-        final line = data.trim();
-        if (line.isNotEmpty) {
-          LoggerService.instance.error(LogSource.sidikJari, '[HELPER] $line');
-        }
-      });
-
-      final code = await process.exitCode;
-      LoggerService.instance.info(
-        LogSource.sidikJari,
-        'Helper selesai dengan exit code $code.',
-      );
-      return code == 0;
-    } catch (e) {
+      if (!stdout.contains('RSSG_AUTOMATION_SUCCESS')) {
+        LoggerService.instance.error(
+          LogSource.sidikJari,
+          'Auto-fill selesai tanpa konfirmasi keberhasilan.',
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      process?.kill();
       LoggerService.instance.error(
         LogSource.sidikJari,
-        'Error menjalankan helper: $e',
+        'Error menjalankan auto-fill terintegrasi: $error',
       );
       return false;
     }
@@ -165,14 +180,26 @@ class SidikJariService {
     required String? noBpjs,
     required String? nama,
   }) async {
-    final identifier = (noBpjs?.isNotEmpty ?? false) ? noBpjs! : (nik ?? '');
+    final normalizedBpjs = noBpjs?.trim() ?? '';
+    final normalizedNik = nik?.trim() ?? '';
+    final identifier = normalizedBpjs.isNotEmpty
+        ? normalizedBpjs
+        : normalizedNik;
 
     LoggerService.instance.info(
       LogSource.sidikJari,
       'Request: nik=$nik, no_bpjs=$noBpjs, nama=$nama',
     );
 
-    if (identifier.isNotEmpty && isDuplicateRequest(identifier)) {
+    if (identifier.isEmpty) {
+      LoggerService.instance.error(
+        LogSource.sidikJari,
+        'Request ditolak: NIK dan nomor BPJS kosong.',
+      );
+      return {'success': false, 'message': 'NIK atau nomor BPJS wajib diisi.'};
+    }
+
+    if (isDuplicateRequest(identifier)) {
       LoggerService.instance.warning(
         LogSource.sidikJari,
         'Request duplikat diabaikan untuk $identifier.',
@@ -191,12 +218,39 @@ class SidikJariService {
       };
     }
 
+    return _enqueue(
+      () => _openSidikJariWindows(
+        nik: normalizedNik,
+        noBpjs: normalizedBpjs,
+        identifier: identifier,
+        useBpjs: normalizedBpjs.isNotEmpty,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> _openSidikJariWindows({
+    required String nik,
+    required String noBpjs,
+    required String identifier,
+    required bool useBpjs,
+  }) async {
     final cfg = getConfig();
 
     try {
       final running = await checkAppRunning();
 
       if (!running) {
+        if (!await File(cfg.afterExePath).exists()) {
+          LoggerService.instance.error(
+            LogSource.sidikJari,
+            'After.exe tidak ditemukan di "${cfg.afterExePath}".',
+          );
+          return {
+            'success': false,
+            'message': 'After.exe tidak ditemukan. Cek path di Settings.',
+          };
+        }
+
         LoggerService.instance.info(
           LogSource.sidikJari,
           'Membuka aplikasi After.exe...',
@@ -214,11 +268,11 @@ class SidikJariService {
         );
       }
 
-      final berhasil = await runHelper(
+      final berhasil = await runIntegratedAutomation(
         username: cfg.bpjsUsername,
         password: cfg.bpjsPassword,
-        noBpjs: identifier,
-        skipLogin: isLoggedIn,
+        identifier: identifier,
+        useBpjs: useBpjs,
       );
 
       if (berhasil) {
@@ -232,38 +286,52 @@ class SidikJariService {
           'message': 'Sukses',
           'data': {'nik': nik, 'no_bpjs': noBpjs},
         };
-      } else {
-        LoggerService.instance.error(
-          LogSource.sidikJari,
-          'Automation SidikJari gagal untuk $identifier.',
-        );
-        return {'success': false, 'message': 'Automation gagal'};
       }
-    } catch (e) {
-      LoggerService.instance.error(LogSource.sidikJari, 'Error: $e');
+
+      isLoggedIn = false;
+      LoggerService.instance.error(
+        LogSource.sidikJari,
+        'Automation SidikJari gagal untuk $identifier.',
+      );
+      return {'success': false, 'message': 'Automation gagal'};
+    } catch (error) {
+      isLoggedIn = false;
+      LoggerService.instance.error(LogSource.sidikJari, 'Error: $error');
       return {'success': false, 'message': 'Server error'};
     }
   }
 
-  Future<Map<String, dynamic>> reset() async {
+  Future<Map<String, dynamic>> reset() {
     if (!Platform.isWindows) {
-      return {
+      return Future.value({
         'success': false,
         'message': 'Reset hanya didukung di Windows.',
-      };
+      });
     }
+    return _enqueue(_resetWindows);
+  }
+
+  Future<Map<String, dynamic>> _resetWindows() async {
     try {
-      await Process.run('taskkill', ['/F', '/IM', 'After.exe']);
+      final result = await Process.run('taskkill', ['/F', '/IM', 'After.exe']);
       isLoggedIn = false;
+      if (result.exitCode != 0) {
+        final error = (result.stderr as String).trim();
+        LoggerService.instance.warning(
+          LogSource.sidikJari,
+          error.isEmpty ? 'After.exe tidak sedang berjalan.' : error,
+        );
+        return {'success': false, 'message': 'Aplikasi tidak sedang berjalan'};
+      }
       LoggerService.instance.success(
         LogSource.sidikJari,
         'Aplikasi After.exe ditutup paksa.',
       );
       return {'success': true, 'message': 'Aplikasi ditutup'};
-    } catch (e) {
+    } catch (error) {
       LoggerService.instance.error(
         LogSource.sidikJari,
-        'Gagal menutup aplikasi: $e',
+        'Gagal menutup aplikasi: $error',
       );
       return {'success': false, 'message': 'Gagal menutup aplikasi'};
     }
@@ -274,9 +342,10 @@ class SidikJariService {
     final cfg = getConfig();
     return {
       'status': 'berjalan',
-      'service': 'Sidikjari Service (Base64 Focus)',
+      'service': 'Sidikjari Service (Integrated Windows Automation)',
       'port': cfg.sidikJariPort,
-      'helper_path': resolveHelperPath(cfg.helperExePath),
+      'automation': 'integrated',
+      'helper_required': false,
       'app_running': appRunning,
       'logged_in': isLoggedIn,
     };

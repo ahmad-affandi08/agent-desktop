@@ -19,7 +19,6 @@ class AppConfig {
 
   // SidikJari module
   final String afterExePath;
-  final String helperExePath;
   final String bpjsUsername;
   final String bpjsPassword;
 
@@ -36,7 +35,6 @@ class AppConfig {
     this.barcodeCopies = 6,
     this.afterExePath =
         r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
-    this.helperExePath = 'sidikjari-autofill.exe',
     this.bpjsUsername = 'ahmad-0154r002',
     this.bpjsPassword = 'Ahmad321#',
   });
@@ -59,7 +57,6 @@ class AppConfig {
     int? apmCopies,
     int? barcodeCopies,
     String? afterExePath,
-    String? helperExePath,
     String? bpjsUsername,
     String? bpjsPassword,
   }) {
@@ -77,49 +74,46 @@ class AppConfig {
       apmCopies: apmCopies ?? this.apmCopies,
       barcodeCopies: barcodeCopies ?? this.barcodeCopies,
       afterExePath: afterExePath ?? this.afterExePath,
-      helperExePath: helperExePath ?? this.helperExePath,
       bpjsUsername: bpjsUsername ?? this.bpjsUsername,
       bpjsPassword: bpjsPassword ?? this.bpjsPassword,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'printPort': printPort,
-        'sidikJariPort': sidikJariPort,
-        'autoStartServers': autoStartServers,
-        'queuePrinterShare': queuePrinterShare,
-        'barcodePrinterShares': barcodePrinterShares,
-        'linuxQueuePrinterName': linuxQueuePrinterName,
-        'linuxBarcodePrinterName': linuxBarcodePrinterName,
-        'queueCopies': queueCopies,
-        'apmCopies': apmCopies,
-        'barcodeCopies': barcodeCopies,
-        'afterExePath': afterExePath,
-        'helperExePath': helperExePath,
-        'bpjsUsername': bpjsUsername,
-        'bpjsPassword': bpjsPassword,
-      };
+    'printPort': printPort,
+    'sidikJariPort': sidikJariPort,
+    'autoStartServers': autoStartServers,
+    'queuePrinterShare': queuePrinterShare,
+    'barcodePrinterShares': barcodePrinterShares,
+    'linuxQueuePrinterName': linuxQueuePrinterName,
+    'linuxBarcodePrinterName': linuxBarcodePrinterName,
+    'queueCopies': queueCopies,
+    'apmCopies': apmCopies,
+    'barcodeCopies': barcodeCopies,
+    'afterExePath': afterExePath,
+    'bpjsUsername': bpjsUsername,
+    'bpjsPassword': bpjsPassword,
+  };
 
   factory AppConfig.fromJson(Map<String, dynamic> json) => AppConfig(
-        printPort: json['printPort'] ?? 3007,
-        sidikJariPort: json['sidikJariPort'] ?? 3009,
-        autoStartServers: json['autoStartServers'] ?? true,
-        queuePrinterShare: json['queuePrinterShare'] ?? 'SILENTPRINTER',
-        barcodePrinterShares:
-            json['barcodePrinterShares'] ?? 'BARCODEPRINTER,XPRINTER',
-        linuxQueuePrinterName:
-            json['linuxQueuePrinterName'] ?? 'SILENTPRINTER',
-        linuxBarcodePrinterName:
-            json['linuxBarcodePrinterName'] ?? 'BARCODEPRINTER',
-        queueCopies: json['queueCopies'] ?? 2,
-        apmCopies: json['apmCopies'] ?? 1,
-        barcodeCopies: json['barcodeCopies'] ?? 6,
-        afterExePath: json['afterExePath'] ??
-            r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
-        helperExePath: json['helperExePath'] ?? 'sidikjari-autofill.exe',
-        bpjsUsername: json['bpjsUsername'] ?? 'ahmad-0154r002',
-        bpjsPassword: json['bpjsPassword'] ?? 'Ahmad321#',
-      );
+    printPort: json['printPort'] ?? 3007,
+    sidikJariPort: json['sidikJariPort'] ?? 3009,
+    autoStartServers: json['autoStartServers'] ?? true,
+    queuePrinterShare: json['queuePrinterShare'] ?? 'SILENTPRINTER',
+    barcodePrinterShares:
+        json['barcodePrinterShares'] ?? 'BARCODEPRINTER,XPRINTER',
+    linuxQueuePrinterName: json['linuxQueuePrinterName'] ?? 'SILENTPRINTER',
+    linuxBarcodePrinterName:
+        json['linuxBarcodePrinterName'] ?? 'BARCODEPRINTER',
+    queueCopies: json['queueCopies'] ?? 2,
+    apmCopies: json['apmCopies'] ?? 1,
+    barcodeCopies: json['barcodeCopies'] ?? 6,
+    afterExePath:
+        json['afterExePath'] ??
+        r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
+    bpjsUsername: json['bpjsUsername'] ?? 'ahmad-0154r002',
+    bpjsPassword: json['bpjsPassword'] ?? 'Ahmad321#',
+  );
 
   String encode() => jsonEncode(toJson());
 

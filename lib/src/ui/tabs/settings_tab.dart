@@ -23,17 +23,19 @@ class _SettingsTabState extends State<SettingsTab> {
       'printPort': TextEditingController(text: '${cfg.printPort}'),
       'sidikJariPort': TextEditingController(text: '${cfg.sidikJariPort}'),
       'queuePrinterShare': TextEditingController(text: cfg.queuePrinterShare),
-      'barcodePrinterShares':
-          TextEditingController(text: cfg.barcodePrinterShares),
-      'linuxQueuePrinterName':
-          TextEditingController(text: cfg.linuxQueuePrinterName),
-      'linuxBarcodePrinterName':
-          TextEditingController(text: cfg.linuxBarcodePrinterName),
+      'barcodePrinterShares': TextEditingController(
+        text: cfg.barcodePrinterShares,
+      ),
+      'linuxQueuePrinterName': TextEditingController(
+        text: cfg.linuxQueuePrinterName,
+      ),
+      'linuxBarcodePrinterName': TextEditingController(
+        text: cfg.linuxBarcodePrinterName,
+      ),
       'queueCopies': TextEditingController(text: '${cfg.queueCopies}'),
       'apmCopies': TextEditingController(text: '${cfg.apmCopies}'),
       'barcodeCopies': TextEditingController(text: '${cfg.barcodeCopies}'),
       'afterExePath': TextEditingController(text: cfg.afterExePath),
-      'helperExePath': TextEditingController(text: cfg.helperExePath),
       'bpjsUsername': TextEditingController(text: cfg.bpjsUsername),
       'bpjsPassword': TextEditingController(text: cfg.bpjsPassword),
     };
@@ -64,14 +66,15 @@ class _SettingsTabState extends State<SettingsTab> {
       apmCopies: _int('apmCopies', cfg.apmCopies),
       barcodeCopies: _int('barcodeCopies', cfg.barcodeCopies),
       afterExePath: _c['afterExePath']!.text.trim(),
-      helperExePath: _c['helperExePath']!.text.trim(),
       bpjsUsername: _c['bpjsUsername']!.text.trim(),
       bpjsPassword: _c['bpjsPassword']!.text,
     );
     await widget.controller.saveConfig(newConfig);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengaturan disimpan & service di-restart.')),
+        const SnackBar(
+          content: Text('Pengaturan disimpan & service di-restart.'),
+        ),
       );
     }
   }
@@ -93,8 +96,12 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  Widget _field(String key, String label,
-      {bool obscure = false, String? helperText}) {
+  Widget _field(
+    String key,
+    String label, {
+    bool obscure = false,
+    String? helperText,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -119,38 +126,38 @@ class _SettingsTabState extends State<SettingsTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _section('Pengaturan Server', [
-            Row(children: [
-              Expanded(child: _field('printPort', 'Port SilentPrint')),
-              const SizedBox(width: 12),
-              Expanded(child: _field('sidikJariPort', 'Port SidikJari')),
-            ]),
+            Row(
+              children: [
+                Expanded(child: _field('printPort', 'Port SilentPrint')),
+                const SizedBox(width: 12),
+                Expanded(child: _field('sidikJariPort', 'Port SidikJari')),
+              ],
+            ),
           ]),
           _section('Pengaturan Print — Windows (UNC Share)', [
             _field('queuePrinterShare', 'Nama Share Printer Antrean/APM'),
-            _field('barcodePrinterShares',
-                'Nama Share Printer Barcode (pisahkan koma untuk fallback)'),
+            _field(
+              'barcodePrinterShares',
+              'Nama Share Printer Barcode (pisahkan koma untuk fallback)',
+            ),
           ]),
           _section('Pengaturan Print — Linux (CUPS)', [
             _field('linuxQueuePrinterName', 'Nama Printer CUPS Antrean/APM'),
             _field('linuxBarcodePrinterName', 'Nama Printer CUPS Barcode'),
           ]),
           _section('Jumlah Salinan Default', [
-            Row(children: [
-              Expanded(child: _field('queueCopies', 'Antrean')),
-              const SizedBox(width: 12),
-              Expanded(child: _field('apmCopies', 'APM')),
-              const SizedBox(width: 12),
-              Expanded(child: _field('barcodeCopies', 'Barcode')),
-            ]),
+            Row(
+              children: [
+                Expanded(child: _field('queueCopies', 'Antrean')),
+                const SizedBox(width: 12),
+                Expanded(child: _field('apmCopies', 'APM')),
+                const SizedBox(width: 12),
+                Expanded(child: _field('barcodeCopies', 'Barcode')),
+              ],
+            ),
           ]),
           _section('Pengaturan SidikJari BPJS', [
             _field('afterExePath', 'Path After.exe'),
-            _field(
-              'helperExePath',
-              'Path Helper Auto-Fill (exe / script)',
-              helperText: 'Nama file saja = dicari otomatis di folder aplikasi ini. '
-                  'Isi path lengkap kalau helper ada di lokasi lain.',
-            ),
             _field('bpjsUsername', 'Username Login BPJS'),
             _field('bpjsPassword', 'Password BPJS', obscure: true),
           ]),
