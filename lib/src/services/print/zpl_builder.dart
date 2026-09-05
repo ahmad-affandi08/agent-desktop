@@ -68,7 +68,15 @@ class ZplBuilder {
         ? _str(peserta['NIK'])
         : (_str(peserta['nik']).isNotEmpty ? _str(peserta['nik']) : '-');
 
-    var alamat = _str(peserta['alamat']);
+    final alamatDetail =
+        (peserta['ALAMAT_DETAIL'] as Map?)?.cast<String, dynamic>() ?? {};
+    var alamat = _str(peserta['alamat']).isNotEmpty
+        ? _str(peserta['alamat'])
+        : (_str(peserta['ALAMAT']).isNotEmpty
+            ? _str(peserta['ALAMAT'])
+            : (_str(alamatDetail['JALAN']).isNotEmpty
+                ? _str(alamatDetail['JALAN'])
+                : _str(patientData['alamat'])));
     if (alamat.length > 50) alamat = alamat.substring(0, 50);
 
     final umurText = calculateAge(dobRaw);
