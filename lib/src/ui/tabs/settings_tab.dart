@@ -14,11 +14,13 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   late final Map<String, TextEditingController> _c;
+  late String _biometricMode;
 
   @override
   void initState() {
     super.initState();
     final cfg = widget.controller.config;
+    _biometricMode = cfg.biometricMode;
     _c = {
       'printPort': TextEditingController(text: '${cfg.printPort}'),
       'sidikJariPort': TextEditingController(text: '${cfg.sidikJariPort}'),
@@ -70,6 +72,7 @@ class _SettingsTabState extends State<SettingsTab> {
       queueCopies: _int('queueCopies', cfg.queueCopies),
       apmCopies: _int('apmCopies', cfg.apmCopies),
       barcodeCopies: _int('barcodeCopies', cfg.barcodeCopies),
+      biometricMode: _biometricMode,
       afterExePath: _c['afterExePath']!.text.trim().replaceAll('"', ''),
       bpjsUsername: _c['bpjsUsername']!.text.trim(),
       bpjsPassword: _c['bpjsPassword']!.text,
@@ -135,12 +138,57 @@ class _SettingsTabState extends State<SettingsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _section('Mode Biometrik BPJS (Port ${widget.controller.config.sidikJariPort})', [
+            const Text(
+              'Tentukan mode biometrik yang aktif untuk PC ini:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'both',
+                    icon: Icon(Icons.all_inclusive),
+                    label: Text('Keduanya Aktif'),
+                  ),
+                  ButtonSegment(
+                    value: 'sidikjari',
+                    icon: Icon(Icons.fingerprint),
+                    label: Text('Hanya Sidik Jari'),
+                  ),
+                  ButtonSegment(
+                    value: 'frista',
+                    icon: Icon(Icons.face),
+                    label: Text('Hanya FRISTA'),
+                  ),
+                ],
+                selected: {_biometricMode},
+                onSelectionChanged: (set) =>
+                    setState(() => _biometricMode = set.first),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _biometricMode == 'both'
+                  ? 'Keduanya aktif: SIMRS dapat memanggil Sidik Jari atau FRISTA sesuai kondisi pasien (jika sidik jari bermasalah bisa langsung beralih ke wajah, atau sebaliknya).'
+                  : _biometricMode == 'sidikjari'
+                      ? 'Hanya Sidik Jari aktif: Semua request biometrik dari SIMRS akan membuka After.exe.'
+                      : 'Hanya FRISTA aktif: Semua request biometrik dari SIMRS akan membuka frista.exe.',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ]),
           _section('Pengaturan Server', [
             Row(
               children: [
                 Expanded(child: _field('printPort', 'Port SilentPrint')),
                 const SizedBox(width: 12),
-                Expanded(child: _field('sidikJariPort', 'Port SidikJari & FRISTA')),
+                Expanded(child: _field('sidikJariPort', 'Port Biometrik (SidikJari & FRISTA)')),
               ],
             ),
           ]),

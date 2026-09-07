@@ -13,6 +13,8 @@ class AppConfig {
   final int apmCopies;
   final int barcodeCopies;
 
+  final String biometricMode;
+
   final String afterExePath;
   final String bpjsUsername;
   final String bpjsPassword;
@@ -34,6 +36,7 @@ class AppConfig {
     this.queueCopies = 2,
     this.apmCopies = 1,
     this.barcodeCopies = 6,
+    this.biometricMode = 'both',
     this.afterExePath =
         r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
     this.bpjsUsername = 'ahmad-0154r002',
@@ -62,6 +65,7 @@ class AppConfig {
     int? queueCopies,
     int? apmCopies,
     int? barcodeCopies,
+    String? biometricMode,
     String? afterExePath,
     String? bpjsUsername,
     String? bpjsPassword,
@@ -84,6 +88,7 @@ class AppConfig {
       queueCopies: queueCopies ?? this.queueCopies,
       apmCopies: apmCopies ?? this.apmCopies,
       barcodeCopies: barcodeCopies ?? this.barcodeCopies,
+      biometricMode: biometricMode ?? this.biometricMode,
       afterExePath: afterExePath ?? this.afterExePath,
       bpjsUsername: bpjsUsername ?? this.bpjsUsername,
       bpjsPassword: bpjsPassword ?? this.bpjsPassword,
@@ -106,6 +111,7 @@ class AppConfig {
     'queueCopies': queueCopies,
     'apmCopies': apmCopies,
     'barcodeCopies': barcodeCopies,
+    'biometricMode': biometricMode,
     'afterExePath': afterExePath,
     'bpjsUsername': bpjsUsername,
     'bpjsPassword': bpjsPassword,
@@ -129,6 +135,7 @@ class AppConfig {
     queueCopies: json['queueCopies'] ?? 2,
     apmCopies: json['apmCopies'] ?? 1,
     barcodeCopies: json['barcodeCopies'] ?? 6,
+    biometricMode: json['biometricMode'] ?? 'both',
     afterExePath:
         json['afterExePath'] ??
         r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',

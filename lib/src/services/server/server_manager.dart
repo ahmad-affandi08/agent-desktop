@@ -150,7 +150,16 @@ class ServerManager {
     final router = Router();
 
     router.post('/open-sidikjari', (Request request) async {
+      final cfg = getConfig();
       final body = await readJsonBody(request);
+      if (cfg.biometricMode == 'frista') {
+        final result = await fristaService.openFrista(
+          nik: body['nik']?.toString(),
+          noBpjs: body['no_bpjs']?.toString(),
+          nama: body['nama']?.toString(),
+        );
+        return jsonResponse(result);
+      }
       final result = await sidikJariService.openSidikJari(
         nik: body['nik']?.toString(),
         noBpjs: body['no_bpjs']?.toString(),
@@ -160,7 +169,16 @@ class ServerManager {
     });
 
     router.post('/open-frista', (Request request) async {
+      final cfg = getConfig();
       final body = await readJsonBody(request);
+      if (cfg.biometricMode == 'sidikjari') {
+        final result = await sidikJariService.openSidikJari(
+          nik: body['nik']?.toString(),
+          noBpjs: body['no_bpjs']?.toString(),
+          nama: body['nama']?.toString(),
+        );
+        return jsonResponse(result);
+      }
       final result = await fristaService.openFrista(
         nik: body['nik']?.toString(),
         noBpjs: body['no_bpjs']?.toString(),
@@ -170,9 +188,10 @@ class ServerManager {
     });
 
     router.post('/open-biometric', (Request request) async {
+      final cfg = getConfig();
       final body = await readJsonBody(request);
       final type = body['type']?.toString().toLowerCase();
-      if (type == 'frista' || type == 'face') {
+      if (cfg.biometricMode == 'frista' || type == 'frista' || type == 'face') {
         final result = await fristaService.openFrista(
           nik: body['nik']?.toString(),
           noBpjs: body['no_bpjs']?.toString(),
@@ -194,7 +213,9 @@ class ServerManager {
     });
 
     router.get('/health', (Request request) async {
+      final cfg = getConfig();
       final result = await sidikJariService.health();
+      result['biometric_mode'] = cfg.biometricMode;
       return jsonResponse(result);
     });
 
