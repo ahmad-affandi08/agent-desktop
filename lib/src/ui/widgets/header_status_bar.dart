@@ -93,7 +93,7 @@ class HeaderStatusBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           const SizedBox(width: 10),
           _badge(
-            label: 'SidikJari',
+            label: 'SidikJari & FRISTA',
             port: controller.config.sidikJariPort,
             status: sm.sidikJariStatus,
             onToggle: controller.toggleSidikJariServer,

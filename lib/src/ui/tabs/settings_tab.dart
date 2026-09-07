@@ -38,6 +38,11 @@ class _SettingsTabState extends State<SettingsTab> {
       'afterExePath': TextEditingController(text: cfg.afterExePath),
       'bpjsUsername': TextEditingController(text: cfg.bpjsUsername),
       'bpjsPassword': TextEditingController(text: cfg.bpjsPassword),
+      'fristaExePath': TextEditingController(text: cfg.fristaExePath),
+      'fristaProcessName': TextEditingController(text: cfg.fristaProcessName),
+      'fristaWindowTitle': TextEditingController(text: cfg.fristaWindowTitle),
+      'fristaUsername': TextEditingController(text: cfg.fristaUsername),
+      'fristaPassword': TextEditingController(text: cfg.fristaPassword),
     };
   }
 
@@ -68,6 +73,11 @@ class _SettingsTabState extends State<SettingsTab> {
       afterExePath: _c['afterExePath']!.text.trim(),
       bpjsUsername: _c['bpjsUsername']!.text.trim(),
       bpjsPassword: _c['bpjsPassword']!.text,
+      fristaExePath: _c['fristaExePath']!.text.trim(),
+      fristaProcessName: _c['fristaProcessName']!.text.trim(),
+      fristaWindowTitle: _c['fristaWindowTitle']!.text.trim(),
+      fristaUsername: _c['fristaUsername']!.text.trim(),
+      fristaPassword: _c['fristaPassword']!.text,
     );
     await widget.controller.saveConfig(newConfig);
     if (mounted) {
@@ -130,7 +140,7 @@ class _SettingsTabState extends State<SettingsTab> {
               children: [
                 Expanded(child: _field('printPort', 'Port SilentPrint')),
                 const SizedBox(width: 12),
-                Expanded(child: _field('sidikJariPort', 'Port SidikJari')),
+                Expanded(child: _field('sidikJariPort', 'Port SidikJari & FRISTA')),
               ],
             ),
           ]),
@@ -156,10 +166,22 @@ class _SettingsTabState extends State<SettingsTab> {
               ],
             ),
           ]),
-          _section('Pengaturan SidikJari BPJS', [
+          _section('Pengaturan SidikJari BPJS (Fingerprint)', [
             _field('afterExePath', 'Path After.exe'),
             _field('bpjsUsername', 'Username Login BPJS'),
             _field('bpjsPassword', 'Password BPJS', obscure: true),
+          ]),
+          _section('Pengaturan FRISTA BPJS (Face Recognition)', [
+            _field('fristaExePath', 'Path frista.exe'),
+            Row(
+              children: [
+                Expanded(child: _field('fristaProcessName', 'Nama Proses (default: frista.exe)')),
+                const SizedBox(width: 12),
+                Expanded(child: _field('fristaWindowTitle', 'Kata Kunci Judul Window (default: frista)')),
+              ],
+            ),
+            _field('fristaUsername', 'Username FRISTA (opsional)'),
+            _field('fristaPassword', 'Password FRISTA (opsional)', obscure: true),
           ]),
           const SizedBox(height: 8),
           FilledButton.icon(

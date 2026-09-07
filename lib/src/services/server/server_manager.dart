@@ -7,18 +7,18 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../core/logger_service.dart';
 import '../../models/app_config.dart';
 import '../../models/log_entry.dart';
+import '../frista/frista_service.dart';
 import '../print/print_service.dart';
 import '../sidikjari/sidikjari_service.dart';
 import 'http_utils.dart';
 
 enum ServerStatus { stopped, starting, running, error }
 
-/// Owns both Shelf HTTP listeners (port 3007 / SilentPrint, port 3009 /
-/// SidikJari) and exposes their live status for the UI header.
 class ServerManager {
   final AppConfig Function() getConfig;
   late final PrintService printService;
   late final SidikJariService sidikJariService;
+  late final FristaService fristaService;
 
   HttpServer? _printServer;
   HttpServer? _sidikJariServer;
@@ -31,6 +31,7 @@ class ServerManager {
   ServerManager({required this.getConfig, required this.onStatusChanged}) {
     printService = PrintService(getConfig: getConfig);
     sidikJariService = SidikJariService(getConfig: getConfig);
+    fristaService = FristaService(getConfig: getConfig);
   }
 
   bool get isAnyRunning =>
@@ -158,6 +159,35 @@ class ServerManager {
       return jsonResponse(result);
     });
 
+    router.post('/open-frista', (Request request) async {
+      final body = await readJsonBody(request);
+      final result = await fristaService.openFrista(
+        nik: body['nik']?.toString(),
+        noBpjs: body['no_bpjs']?.toString(),
+        nama: body['nama']?.toString(),
+      );
+      return jsonResponse(result);
+    });
+
+    router.post('/open-biometric', (Request request) async {
+      final body = await readJsonBody(request);
+      final type = body['type']?.toString().toLowerCase();
+      if (type == 'frista' || type == 'face') {
+        final result = await fristaService.openFrista(
+          nik: body['nik']?.toString(),
+          noBpjs: body['no_bpjs']?.toString(),
+          nama: body['nama']?.toString(),
+        );
+        return jsonResponse(result);
+      }
+      final result = await sidikJariService.openSidikJari(
+        nik: body['nik']?.toString(),
+        noBpjs: body['no_bpjs']?.toString(),
+        nama: body['nama']?.toString(),
+      );
+      return jsonResponse(result);
+    });
+
     router.post('/reset', (Request request) async {
       final result = await sidikJariService.reset();
       return jsonResponse(result);
@@ -165,6 +195,16 @@ class ServerManager {
 
     router.get('/health', (Request request) async {
       final result = await sidikJariService.health();
+      return jsonResponse(result);
+    });
+
+    router.post('/frista/reset', (Request request) async {
+      final result = await fristaService.reset();
+      return jsonResponse(result);
+    });
+
+    router.get('/frista/health', (Request request) async {
+      final result = await fristaService.health();
       return jsonResponse(result);
     });
 
@@ -234,13 +274,13 @@ class ServerManager {
       sidikJariStatus = ServerStatus.running;
       LoggerService.instance.success(
         LogSource.system,
-        'SidikJari service berjalan di port ${cfg.sidikJariPort}.',
+        'SidikJari & FRISTA service berjalan di port ${cfg.sidikJariPort}.',
       );
     } catch (e) {
       sidikJariStatus = ServerStatus.error;
       LoggerService.instance.error(
         LogSource.system,
-        'Gagal start SidikJari service: $e',
+        'Gagal start SidikJari & FRISTA service: $e',
       );
     }
     onStatusChanged();
@@ -258,7 +298,7 @@ class ServerManager {
     await _sidikJariServer?.close(force: true);
     _sidikJariServer = null;
     sidikJariStatus = ServerStatus.stopped;
-    LoggerService.instance.warning(LogSource.system, 'SidikJari service dihentikan.');
+    LoggerService.instance.warning(LogSource.system, 'SidikJari & FRISTA service dihentikan.');
     onStatusChanged();
   }
 }

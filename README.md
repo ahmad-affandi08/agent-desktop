@@ -1,31 +1,24 @@
 # RSSG Agent Desktop
 
-Aplikasi Flutter Desktop terpadu untuk SilentPrint (port 3007) dan automasi
-BPJS SidikJari (port 3009).
+Aplikasi Flutter Desktop terpadu untuk SilentPrint (port 3007) serta automasi biometrik BPJS SidikJari dan BPJS FRISTA (port 3009).
 
-## SidikJari tanpa helper
+## Fitur Biometrik Terpadu (SidikJari & FRISTA)
 
-Release Windows tidak membutuhkan `sidikjari-autofill.exe`, instalasi Python,
-atau AutoHotkey. Seluruh alur berikut ditangani oleh aplikasi:
+Release Windows tidak membutuhkan helper eksternal, instalasi Python, atau AutoHotkey. Seluruh alur ditangani langsung oleh aplikasi:
 
-- membuka `After.exe` bila belum berjalan;
-- menangani dialog **Setting Koneksi** pada pemasangan pertama;
-- login menggunakan kredensial dari Settings;
-- memilih jenis identitas NIK atau BPJS dan mengisi nomor pasien; dan
-- menggunakan kembali sesi aplikasi yang masih aktif.
+- Membuka aplikasi resmi BPJS (`After.exe` untuk SidikJari atau `frista.exe` untuk FRISTA) bila belum berjalan.
+- Menggunakan kembali (*reuse*) jendela aplikasi yang sudah aktif.
+- Menangani aktivasi window ke baris paling depan (*foreground*).
+- Mengisi nomor NIK / BPJS ke field input pasien secara otomatis.
+- Menyediakan endpoint HTTP lokal untuk diintegrasikan dengan SIMRS:
+  - `POST /open-sidikjari`: automasi aplikasi SidikJari.
+  - `POST /open-frista`: automasi aplikasi FRISTA.
+  - `POST /open-biometric`: automasi biometrik fleksibel (parameter `type: "sidikjari" | "frista"`).
+  - `POST /frista/reset` dan `GET /frista/health`.
 
-Automasi memakai API Win32 melalui Windows PowerShell bawaan sistem. Aksi GUI
-dijalankan secara berurutan agar request pasien yang bersamaan tidak saling
-menimpa.
-
-Satu-satunya aplikasi eksternal yang harus terpasang adalah aplikasi resmi BPJS
-SidikJari, dengan lokasi default:
-
-```text
-C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe
-```
-
-Lokasi, username, dan password dapat diubah dari tab **Settings**.
+Lokasi default executable:
+- SidikJari: `C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe`
+- FRISTA: `C:\Users\User\Documents\frista.exe` (dapat disesuaikan di tab **Settings**)
 
 ## Build Windows
 
@@ -39,5 +32,3 @@ Distribusikan seluruh isi folder berikut sebagai satu paket:
 ```text
 build\windows\x64\runner\Release\
 ```
-
-Workflow GitHub Actions juga menghasilkan `rssg_agent_desktop-windows.zip`.

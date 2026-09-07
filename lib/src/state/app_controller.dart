@@ -7,9 +7,6 @@ import '../models/app_config.dart';
 import '../models/log_entry.dart';
 import '../services/server/server_manager.dart';
 
-/// Root app state: config, both HTTP servers, and derived status used by
-/// the header bar / tabs. Plain ChangeNotifier so the UI can rebuild with a
-/// simple ListenableBuilder, exposed to the tree via a Riverpod Provider.
 class AppController extends ChangeNotifier {
   final ConfigRepository _repo = ConfigRepository();
 
@@ -43,9 +40,6 @@ class AppController extends ChangeNotifier {
     LoggerService.instance.info(LogSource.system, 'Pengaturan disimpan.');
     notifyListeners();
 
-    // Restart only the listeners that were already running, so new
-    // ports/printer settings take effect without touching a service the
-    // user deliberately left stopped.
     final wasPrintRunning = serverManager.printStatus == ServerStatus.running;
     final wasSidikJariRunning =
         serverManager.sidikJariStatus == ServerStatus.running;
@@ -60,7 +54,6 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  /// Individually starts/stops the SilentPrint (port 3007) listener.
   Future<void> togglePrintServer() async {
     if (serverManager.printStatus == ServerStatus.running ||
         serverManager.printStatus == ServerStatus.starting) {
@@ -70,7 +63,6 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  /// Individually starts/stops the SidikJari (port 3009) listener.
   Future<void> toggleSidikJariServer() async {
     if (serverManager.sidikJariStatus == ServerStatus.running ||
         serverManager.sidikJariStatus == ServerStatus.starting) {
@@ -80,7 +72,6 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  /// Bulk start/stop used by the tray "Pause / Resume" menu item.
   Future<void> togglePause() async {
     if (serverManager.isAnyRunning) {
       await serverManager.stopAll();

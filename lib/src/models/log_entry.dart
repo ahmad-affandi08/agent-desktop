@@ -1,6 +1,6 @@
 enum LogLevel { info, success, warning, error }
 
-enum LogSource { system, silentPrint, sidikJari }
+enum LogSource { system, silentPrint, sidikJari, frista }
 
 class LogEntry {
   final DateTime timestamp;
@@ -23,6 +23,8 @@ class LogEntry {
         return 'SilentPrint';
       case LogSource.sidikJari:
         return 'SidikJari';
+      case LogSource.frista:
+        return 'FRISTA';
     }
   }
 

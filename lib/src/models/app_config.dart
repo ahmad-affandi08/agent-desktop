@@ -1,26 +1,27 @@
 import 'dart:convert';
 
-/// Persisted configuration for both modules. Mirrors the settings that used
-/// to be hardcoded across silentprintws and sidikjari-agent.
 class AppConfig {
-  // Server
   final int printPort;
   final int sidikJariPort;
   final bool autoStartServers;
 
-  // Print module
-  final String queuePrinterShare; // Windows UNC share name, e.g. SILENTPRINTER
-  final String barcodePrinterShares; // comma separated fallback list
-  final String linuxQueuePrinterName; // CUPS printer name
-  final String linuxBarcodePrinterName; // CUPS printer name
+  final String queuePrinterShare;
+  final String barcodePrinterShares;
+  final String linuxQueuePrinterName;
+  final String linuxBarcodePrinterName;
   final int queueCopies;
   final int apmCopies;
   final int barcodeCopies;
 
-  // SidikJari module
   final String afterExePath;
   final String bpjsUsername;
   final String bpjsPassword;
+
+  final String fristaExePath;
+  final String fristaProcessName;
+  final String fristaWindowTitle;
+  final String fristaUsername;
+  final String fristaPassword;
 
   const AppConfig({
     this.printPort = 3007,
@@ -37,6 +38,11 @@ class AppConfig {
         r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
     this.bpjsUsername = 'ahmad-0154r002',
     this.bpjsPassword = 'Ahmad321#',
+    this.fristaExePath = r'C:\Users\User\Documents\frista.exe',
+    this.fristaProcessName = 'frista.exe',
+    this.fristaWindowTitle = 'Frista (Face Recognition BPJS Kesehatan)',
+    this.fristaUsername = '',
+    this.fristaPassword = '',
   });
 
   List<String> get barcodePrinterShareList => barcodePrinterShares
@@ -59,6 +65,11 @@ class AppConfig {
     String? afterExePath,
     String? bpjsUsername,
     String? bpjsPassword,
+    String? fristaExePath,
+    String? fristaProcessName,
+    String? fristaWindowTitle,
+    String? fristaUsername,
+    String? fristaPassword,
   }) {
     return AppConfig(
       printPort: printPort ?? this.printPort,
@@ -76,6 +87,11 @@ class AppConfig {
       afterExePath: afterExePath ?? this.afterExePath,
       bpjsUsername: bpjsUsername ?? this.bpjsUsername,
       bpjsPassword: bpjsPassword ?? this.bpjsPassword,
+      fristaExePath: fristaExePath ?? this.fristaExePath,
+      fristaProcessName: fristaProcessName ?? this.fristaProcessName,
+      fristaWindowTitle: fristaWindowTitle ?? this.fristaWindowTitle,
+      fristaUsername: fristaUsername ?? this.fristaUsername,
+      fristaPassword: fristaPassword ?? this.fristaPassword,
     );
   }
 
@@ -93,6 +109,11 @@ class AppConfig {
     'afterExePath': afterExePath,
     'bpjsUsername': bpjsUsername,
     'bpjsPassword': bpjsPassword,
+    'fristaExePath': fristaExePath,
+    'fristaProcessName': fristaProcessName,
+    'fristaWindowTitle': fristaWindowTitle,
+    'fristaUsername': fristaUsername,
+    'fristaPassword': fristaPassword,
   };
 
   factory AppConfig.fromJson(Map<String, dynamic> json) => AppConfig(
@@ -113,6 +134,13 @@ class AppConfig {
         r'C:\Program Files (x86)\Aplikasi Sidik Jari BPJS Kesehatan\After.exe',
     bpjsUsername: json['bpjsUsername'] ?? 'ahmad-0154r002',
     bpjsPassword: json['bpjsPassword'] ?? 'Ahmad321#',
+    fristaExePath:
+        json['fristaExePath'] ?? r'C:\Users\User\Documents\frista.exe',
+    fristaProcessName: json['fristaProcessName'] ?? 'frista.exe',
+    fristaWindowTitle:
+        json['fristaWindowTitle'] ?? 'Frista (Face Recognition BPJS Kesehatan)',
+    fristaUsername: json['fristaUsername'] ?? '',
+    fristaPassword: json['fristaPassword'] ?? '',
   );
 
   String encode() => jsonEncode(toJson());
