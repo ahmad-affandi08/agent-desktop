@@ -19,7 +19,7 @@ class FristaService {
   bool isDuplicateRequest(String identifier) {
     final now = DateTime.now();
     final last = _recentRequests[identifier];
-    if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+    if (last != null && now.difference(last) < const Duration(milliseconds: 1500)) {
       return true;
     }
     _recentRequests[identifier] = now;
@@ -53,16 +53,63 @@ class FristaService {
     return result.future;
   }
 
+  Future<String?> resolveFristaExePath() async {
+    final cfg = getConfig();
+    final configured = cfg.fristaExePath.replaceAll('"', '').trim();
+    if (configured.isNotEmpty && await File(configured).exists()) {
+      return configured;
+    }
+
+    final userProfile = Platform.environment['USERPROFILE'] ?? '';
+    final candidates = <String>[
+      if (userProfile.isNotEmpty) ...[
+        '$userProfile\\Documents\\frista.v.3.0.1\\frista.exe',
+        '$userProfile\\Documents\\frista\\frista.exe',
+        '$userProfile\\Documents\\frista.exe',
+        '$userProfile\\Desktop\\frista.v.3.0.1\\frista.exe',
+        '$userProfile\\Desktop\\frista\\frista.exe',
+        '$userProfile\\Desktop\\frista.exe',
+        '$userProfile\\Downloads\\frista.v.3.0.1\\frista.exe',
+        '$userProfile\\Downloads\\frista\\frista.exe',
+        '$userProfile\\Downloads\\frista.exe',
+      ],
+      r'C:\frista\frista.exe',
+      r'C:\frista.v.3.0.1\frista.exe',
+      r'C:\Program Files\frista\frista.exe',
+      r'C:\Program Files (x86)\frista\frista.exe',
+    ];
+
+    for (final candidate in candidates) {
+      if (await File(candidate).exists()) {
+        return candidate;
+      }
+    }
+
+    if (userProfile.isNotEmpty) {
+      final docsDir = Directory('$userProfile\\Documents');
+      if (await docsDir.exists()) {
+        try {
+          await for (final entity in docsDir.list(recursive: true, followLinks: false)) {
+            if (entity is File && entity.path.toLowerCase().endsWith('frista.exe')) {
+              return entity.path;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    return null;
+  }
+
   Future<bool> checkAppRunning() async {
     if (!Platform.isWindows) return false;
     final cfg = getConfig();
     final processName = cfg.fristaProcessName.isEmpty ? 'frista.exe' : cfg.fristaProcessName;
     try {
-      final result = await Process.run('tasklist', [
-        '/FI',
-        'IMAGENAME eq $processName',
-      ]);
-      return (result.stdout as String).toLowerCase().contains(processName.toLowerCase());
+      final result = await Process.run('tasklist', []);
+      final output = (result.stdout as String).toLowerCase();
+      final baseName = processName.replaceAll('.exe', '').toLowerCase();
+      return output.contains(baseName);
     } catch (_) {
       return false;
     }
@@ -82,6 +129,7 @@ class FristaService {
     required String password,
     required String identifier,
     required bool useBpjs,
+    bool isDualMode = false,
   }) async {
     Process? process;
     final cfg = getConfig();
@@ -112,6 +160,10 @@ class FristaService {
           'RSSG_FRISTA_IDENTIFIER': identifier,
           'RSSG_FRISTA_IDENTIFIER_TYPE': useBpjs ? 'BPJS' : 'NIK',
           'RSSG_FRISTA_WINDOW_TITLE': cfg.fristaWindowTitle,
+          'RSSG_FRISTA_POS_X': isDualMode ? '685' : '100',
+          'RSSG_FRISTA_POS_Y': isDualMode ? '0' : '30',
+          'RSSG_FRISTA_WIDTH': isDualMode ? '680' : '850',
+          'RSSG_FRISTA_HEIGHT': isDualMode ? '520' : '550',
         },
         includeParentEnvironment: true,
         runInShell: false,
@@ -177,6 +229,7 @@ class FristaService {
     required String? nik,
     required String? noBpjs,
     required String? nama,
+    bool isDualMode = false,
   }) async {
     final normalizedBpjs = noBpjs?.trim() ?? '';
     final normalizedNik = nik?.trim() ?? '';
@@ -222,6 +275,7 @@ class FristaService {
         noBpjs: normalizedBpjs,
         identifier: identifier,
         useBpjs: normalizedBpjs.isNotEmpty && normalizedNik.isEmpty,
+        isDualMode: isDualMode,
       ),
     );
   }
@@ -231,6 +285,7 @@ class FristaService {
     required String noBpjs,
     required String identifier,
     required bool useBpjs,
+    bool isDualMode = false,
   }) async {
     final cfg = getConfig();
 
@@ -238,10 +293,11 @@ class FristaService {
       final running = await checkAppRunning();
 
       if (!running) {
-        if (!await File(cfg.fristaExePath).exists()) {
+        final resolvedExe = await resolveFristaExePath();
+        if (resolvedExe == null) {
           LoggerService.instance.error(
             LogSource.frista,
-            'Aplikasi FRISTA tidak ditemukan di "${cfg.fristaExePath}".',
+            'Aplikasi FRISTA tidak ditemukan di "${cfg.fristaExePath}". Cek path di Settings.',
           );
           return {
             'success': false,
@@ -251,10 +307,10 @@ class FristaService {
 
         LoggerService.instance.info(
           LogSource.frista,
-          'Membuka aplikasi FRISTA (${cfg.fristaExePath})...',
+          'Membuka aplikasi FRISTA ($resolvedExe)...',
         );
         await Process.start(
-          cfg.fristaExePath,
+          resolvedExe,
           [],
           mode: ProcessStartMode.detached,
         );
@@ -272,6 +328,7 @@ class FristaService {
         password: cfg.fristaPassword,
         identifier: identifier,
         useBpjs: useBpjs,
+        isDualMode: isDualMode,
       );
 
       if (berhasil) {
@@ -320,36 +377,42 @@ class FristaService {
         final error = (result.stderr as String).trim();
         LoggerService.instance.warning(
           LogSource.frista,
-          error.isEmpty ? '$processName tidak sedang berjalan.' : error,
+          'Reset FRISTA: $error',
         );
-        return {'success': false, 'message': 'Aplikasi tidak sedang berjalan'};
+      } else {
+        LoggerService.instance.success(
+          LogSource.frista,
+          'Proses FRISTA berhasil dihentikan.',
+        );
       }
-      LoggerService.instance.success(
-        LogSource.frista,
-        'Aplikasi $processName ditutup paksa.',
-      );
-      return {'success': true, 'message': 'Aplikasi FRISTA ditutup'};
+      return {
+        'success': true,
+        'message': 'Proses FRISTA dihentikan.',
+      };
     } catch (error) {
       LoggerService.instance.error(
         LogSource.frista,
-        'Gagal menutup aplikasi FRISTA: $error',
+        'Gagal menghentikan FRISTA: $error',
       );
-      return {'success': false, 'message': 'Gagal menutup aplikasi FRISTA'};
+      return {
+        'success': false,
+        'message': 'Gagal reset FRISTA: $error',
+      };
     }
   }
 
   Future<Map<String, dynamic>> health() async {
-    final appRunning = await checkAppRunning();
     final cfg = getConfig();
+    final running = await checkAppRunning();
+    final resolved = await resolveFristaExePath();
     return {
-      'status': 'berjalan',
-      'service': 'FRISTA Service (Integrated Windows Automation)',
-      'port': cfg.sidikJariPort,
-      'automation': 'integrated',
-      'helper_required': false,
-      'app_running': appRunning,
-      'logged_in': isLoggedIn,
-      'exe_path': cfg.fristaExePath,
+      'status': running ? 'running' : 'stopped',
+      'configured_path': cfg.fristaExePath,
+      'resolved_path': resolved,
+      'exists': resolved != null,
+      'window_title': cfg.fristaWindowTitle,
+      'process_name': cfg.fristaProcessName,
+      'is_logged_in': isLoggedIn,
     };
   }
 }

@@ -146,21 +146,61 @@ class ServerManager {
     return router;
   }
 
+  Future<Map<String, dynamic>> _handleBiometricRequest({
+    required String? nik,
+    required String? noBpjs,
+    required String? nama,
+    String? requestedType,
+  }) async {
+    final cfg = getConfig();
+    final mode = cfg.biometricMode;
+
+    if (requestedType == 'face' || requestedType == 'frista') {
+      return fristaService.openFrista(nik: nik, noBpjs: noBpjs, nama: nama);
+    }
+
+    if (requestedType == 'fingerprint' || requestedType == 'sidikjari') {
+      return sidikJariService.openSidikJari(nik: nik, noBpjs: noBpjs, nama: nama);
+    }
+
+    if (mode == 'frista') {
+      return fristaService.openFrista(nik: nik, noBpjs: noBpjs, nama: nama);
+    }
+
+    if (mode == 'sidikjari') {
+      return sidikJariService.openSidikJari(nik: nik, noBpjs: noBpjs, nama: nama);
+    }
+
+    final sidikResult = await sidikJariService.openSidikJari(
+      nik: nik,
+      noBpjs: noBpjs,
+      nama: nama,
+    );
+
+    final fristaResult = await fristaService.openFrista(
+      nik: nik,
+      noBpjs: noBpjs,
+      nama: nama,
+      isDualMode: true,
+    );
+
+    final anySuccess = (sidikResult['success'] == true) || (fristaResult['success'] == true);
+    return {
+      'success': anySuccess,
+      'message': anySuccess
+          ? 'SidikJari dan FRISTA berhasil dipanggil.'
+          : 'Gagal memanggil SidikJari dan FRISTA.',
+      'sidikjari': sidikResult,
+      'frista': fristaResult,
+    };
+  }
+
   Router _buildSidikJariRouter() {
     final router = Router();
 
     router.post('/open-sidikjari', (Request request) async {
-      final cfg = getConfig();
       final body = await readJsonBody(request);
-      if (cfg.biometricMode == 'frista') {
-        final result = await fristaService.openFrista(
-          nik: body['nik']?.toString(),
-          noBpjs: body['no_bpjs']?.toString(),
-          nama: body['nama']?.toString(),
-        );
-        return jsonResponse(result);
-      }
-      final result = await sidikJariService.openSidikJari(
+      final result = await _handleBiometricRequest(
         nik: body['nik']?.toString(),
         noBpjs: body['no_bpjs']?.toString(),
         nama: body['nama']?.toString(),
@@ -169,17 +209,8 @@ class ServerManager {
     });
 
     router.post('/open-frista', (Request request) async {
-      final cfg = getConfig();
       final body = await readJsonBody(request);
-      if (cfg.biometricMode == 'sidikjari') {
-        final result = await sidikJariService.openSidikJari(
-          nik: body['nik']?.toString(),
-          noBpjs: body['no_bpjs']?.toString(),
-          nama: body['nama']?.toString(),
-        );
-        return jsonResponse(result);
-      }
-      final result = await fristaService.openFrista(
+      final result = await _handleBiometricRequest(
         nik: body['nik']?.toString(),
         noBpjs: body['no_bpjs']?.toString(),
         nama: body['nama']?.toString(),
@@ -188,35 +219,47 @@ class ServerManager {
     });
 
     router.post('/open-biometric', (Request request) async {
-      final cfg = getConfig();
       final body = await readJsonBody(request);
       final type = body['type']?.toString().toLowerCase();
-      if (cfg.biometricMode == 'frista' || type == 'frista' || type == 'face') {
-        final result = await fristaService.openFrista(
-          nik: body['nik']?.toString(),
-          noBpjs: body['no_bpjs']?.toString(),
-          nama: body['nama']?.toString(),
-        );
-        return jsonResponse(result);
-      }
-      final result = await sidikJariService.openSidikJari(
+      final result = await _handleBiometricRequest(
         nik: body['nik']?.toString(),
         noBpjs: body['no_bpjs']?.toString(),
         nama: body['nama']?.toString(),
+        requestedType: type,
       );
       return jsonResponse(result);
     });
 
     router.post('/reset', (Request request) async {
+      final cfg = getConfig();
+      if (cfg.biometricMode == 'both') {
+        final sidikResult = await sidikJariService.reset();
+        final fristaResult = await fristaService.reset();
+        return jsonResponse({
+          'success': sidikResult['success'] == true && fristaResult['success'] == true,
+          'sidikjari': sidikResult,
+          'frista': fristaResult,
+        });
+      } else if (cfg.biometricMode == 'frista') {
+        final result = await fristaService.reset();
+        return jsonResponse(result);
+      }
       final result = await sidikJariService.reset();
       return jsonResponse(result);
     });
 
     router.get('/health', (Request request) async {
       final cfg = getConfig();
-      final result = await sidikJariService.health();
-      result['biometric_mode'] = cfg.biometricMode;
-      return jsonResponse(result);
+      final sidikResult = await sidikJariService.health();
+      final fristaResult = await fristaService.health();
+      return jsonResponse({
+        'status': sidikResult['status'] == 'running' || fristaResult['status'] == 'running'
+            ? 'running'
+            : 'stopped',
+        'biometric_mode': cfg.biometricMode,
+        'sidikjari': sidikResult,
+        'frista': fristaResult,
+      });
     });
 
     router.post('/frista/reset', (Request request) async {

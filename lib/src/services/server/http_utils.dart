@@ -8,8 +8,6 @@ const _corsHeaders = {
   'Access-Control-Allow-Headers': 'Origin, Content-Type, Authorization',
 };
 
-/// Mirrors express's cors() middleware: adds CORS headers to every response
-/// and short-circuits CORS preflight OPTIONS requests.
 Middleware corsMiddleware() {
   return (Handler innerHandler) {
     return (Request request) async {

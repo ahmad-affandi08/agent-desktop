@@ -80,6 +80,12 @@ public static class RssgFristaNative {
     private static extern bool BringWindowToTop(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
     private static extern bool SetCursorPos(int x, int y);
 
     [DllImport("user32.dll")]
@@ -105,6 +111,25 @@ public static class RssgFristaNative {
         try { SetProcessDPIAware(); } catch { }
     }
 
+    public static IntPtr FindWindowByProcessName(string processName) {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
+            if (!IsWindowVisible(hWnd)) return true;
+            uint pid;
+            GetWindowThreadProcessId(hWnd, out pid);
+            if (pid == 0) return true;
+            try {
+                var proc = System.Diagnostics.Process.GetProcessById((int)pid);
+                if (proc.ProcessName.IndexOf(processName, StringComparison.OrdinalIgnoreCase) >= 0) {
+                    found = hWnd;
+                    return false;
+                }
+            } catch { }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+
     public static IntPtr FindWindowContaining(string included, string excluded) {
         IntPtr found = IntPtr.Zero;
         EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
@@ -124,11 +149,14 @@ public static class RssgFristaNative {
         return found;
     }
 
-    public static void ActivateAndNormalize(IntPtr hWnd) {
+    public static void ActivateAndNormalize(IntPtr hWnd, int x, int y, int width, int height) {
         if (hWnd == IntPtr.Zero) throw new InvalidOperationException("Window handle is empty");
         ShowWindowAsync(hWnd, 9);
+        SetWindowPos(hWnd, new IntPtr(-1), x, y, width, height, 0x0040);
+        SetWindowPos(hWnd, new IntPtr(-2), x, y, width, height, 0x0040);
         BringWindowToTop(hWnd);
         SetForegroundWindow(hWnd);
+        SwitchToThisWindow(hWnd, true);
         Thread.Sleep(200);
     }
 
@@ -143,6 +171,9 @@ public static class RssgFristaNative {
         int y = rectangle.top + (int)(height * 0.28);
         SetCursorPos(x, y);
         Thread.Sleep(50);
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(80);
         mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
         Thread.Sleep(100);
@@ -185,6 +216,24 @@ public static class RssgFristaNative {
 $identifier = $env:RSSG_FRISTA_IDENTIFIER
 $titlePattern = $env:RSSG_FRISTA_WINDOW_TITLE
 
+$posX = 685
+$posY = 0
+$width = 680
+$height = 520
+
+if ($env:RSSG_FRISTA_POS_X) {
+    [int]::TryParse($env:RSSG_FRISTA_POS_X, [ref]$posX)
+}
+if ($env:RSSG_FRISTA_POS_Y) {
+    [int]::TryParse($env:RSSG_FRISTA_POS_Y, [ref]$posY)
+}
+if ($env:RSSG_FRISTA_WIDTH) {
+    [int]::TryParse($env:RSSG_FRISTA_WIDTH, [ref]$width)
+}
+if ($env:RSSG_FRISTA_HEIGHT) {
+    [int]::TryParse($env:RSSG_FRISTA_HEIGHT, [ref]$height)
+}
+
 if ([string]::IsNullOrWhiteSpace($titlePattern)) {
     $titlePattern = 'Frista (Face Recognition BPJS Kesehatan)'
 }
@@ -194,17 +243,27 @@ if ([string]::IsNullOrWhiteSpace($identifier)) {
 }
 
 function Find-MainWindow {
-    $window = [RssgFristaNative]::FindWindowContaining($titlePattern, '')
-    if ($window -eq [IntPtr]::Zero) {
-        $window = [RssgFristaNative]::FindWindowContaining('Frista (Face Recognition BPJS Kesehatan)', '')
+    $proc = Get-Process -Name '*frista*' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+    if ($null -ne $proc -and $proc.MainWindowHandle -ne [IntPtr]::Zero) {
+        return $proc.MainWindowHandle
     }
-    if ($window -eq [IntPtr]::Zero) {
-        $window = [RssgFristaNative]::FindWindowContaining('Frista', '')
+    $window = [RssgFristaNative]::FindWindowByProcessName('frista')
+    if ($window -ne [IntPtr]::Zero) {
+        return $window
     }
-    if ($window -eq [IntPtr]::Zero) {
-        $window = [RssgFristaNative]::FindWindowContaining('Face Recognition', '')
+    $window = [RssgFristaNative]::FindWindowContaining('Frista (Face Recognition BPJS Kesehatan)', '')
+    if ($window -ne [IntPtr]::Zero) {
+        return $window
     }
-    return $window
+    $window = [RssgFristaNative]::FindWindowContaining($titlePattern, 'Chrome,Edge,Firefox,Telegram,WhatsApp,Agent')
+    if ($window -ne [IntPtr]::Zero) {
+        return $window
+    }
+    $window = [RssgFristaNative]::FindWindowContaining('Face Recognition', 'Chrome,Edge,Firefox,Telegram,WhatsApp,Agent')
+    if ($window -ne [IntPtr]::Zero) {
+        return $window
+    }
+    return [IntPtr]::Zero
 }
 
 function Wait-ForWindow([scriptblock]$finder, [int]$timeoutSeconds) {
@@ -219,6 +278,9 @@ function Wait-ForWindow([scriptblock]$finder, [int]$timeoutSeconds) {
 
 function Set-FieldText([string]$value, [int]$delayMilliseconds) {
     [RssgFristaNative]::SelectAll()
+    Start-Sleep -Milliseconds 50
+    [RssgFristaNative]::Press(0x08)
+    Start-Sleep -Milliseconds 50
     [RssgFristaNative]::TypeUnicode($value, $delayMilliseconds)
 }
 
@@ -230,13 +292,13 @@ try {
         throw 'Window aplikasi FRISTA tidak ditemukan dalam 15 detik.'
     }
 
-    Write-Output '[AUTO] Mengaktifkan window FRISTA...'
-    [RssgFristaNative]::ActivateAndNormalize($mainWindow)
+    Write-Output '[AUTO] Mengaktifkan window FRISTA ke foreground...'
+    [RssgFristaNative]::ActivateAndNormalize($mainWindow, $posX, $posY, $width, $height)
     Start-Sleep -Milliseconds 300
 
     Write-Output '[AUTO] Memilih field input NIK/BPJS FRISTA...'
     [RssgFristaNative]::ClickInputArea($mainWindow)
-    Start-Sleep -Milliseconds 100
+    Start-Sleep -Milliseconds 150
 
     Set-FieldText $identifier 20
 

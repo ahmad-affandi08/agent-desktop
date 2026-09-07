@@ -7,9 +7,6 @@ import '../../models/app_config.dart';
 import '../../models/log_entry.dart';
 import 'windows_automation_script.dart';
 
-/// Opens the BPJS SidikJari application and performs its complete UI
-/// automation directly. The only external executable used is Windows'
-/// built-in PowerShell; no Python/AutoHotkey/helper distribution is required.
 class SidikJariService {
   final AppConfig Function() getConfig;
 
@@ -22,7 +19,7 @@ class SidikJariService {
   bool isDuplicateRequest(String identifier) {
     final now = DateTime.now();
     final last = _recentRequests[identifier];
-    if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+    if (last != null && now.difference(last) < const Duration(milliseconds: 1500)) {
       return true;
     }
     _recentRequests[identifier] = now;
@@ -32,8 +29,6 @@ class SidikJariService {
     return false;
   }
 
-  /// Shelf can serve requests concurrently, while desktop input must never
-  /// overlap. Queue every operation that manipulates the BPJS window.
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final result = Completer<T>();
     final previous = _automationTail;
@@ -44,7 +39,6 @@ class SidikJariService {
       try {
         await previous;
       } catch (_) {
-        // A failed earlier request must not poison the queue.
       }
 
       try {
@@ -62,11 +56,8 @@ class SidikJariService {
   Future<bool> checkAppRunning() async {
     if (!Platform.isWindows) return false;
     try {
-      final result = await Process.run('tasklist', [
-        '/FI',
-        'IMAGENAME eq After.exe',
-      ]);
-      return (result.stdout as String).contains('After.exe');
+      final result = await Process.run('tasklist', []);
+      return (result.stdout as String).toLowerCase().contains('after.exe');
     } catch (_) {
       return false;
     }

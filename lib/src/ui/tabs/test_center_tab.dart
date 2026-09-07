@@ -172,6 +172,28 @@ class _TestCenterTabState extends State<TestCenterTab> {
               icon: const Icon(Icons.play_arrow),
               label: const Text('Test Open FRISTA'),
             ),
+            FilledButton.tonalIcon(
+              onPressed: _busy
+                  ? null
+                  : () => _run('Test Keduanya (SidikJari + FRISTA)', () async {
+                        final s = await sidikJariService.openSidikJari(
+                          nik: '3311010101900001',
+                          noBpjs: '0001234567890',
+                          nama: 'Pasien Uji Coba',
+                        );
+                        final f = await fristaService.openFrista(
+                          nik: '3311010101900001',
+                          noBpjs: '0001234567890',
+                          nama: 'Pasien Uji Coba',
+                          isDualMode: true,
+                        );
+                        if (s['success'] != true && f['success'] != true) {
+                          throw Exception('Gagal membuka SidikJari dan FRISTA');
+                        }
+                      }),
+              icon: const Icon(Icons.splitscreen),
+              label: const Text('Test Keduanya (Dual)'),
+            ),
             OutlinedButton.icon(
               onPressed: _busy
                   ? null

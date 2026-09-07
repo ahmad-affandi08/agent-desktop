@@ -1,7 +1,3 @@
-/// Self-contained Windows automation used by `SidikJariService`.
-///
-/// It is encoded and executed in Windows PowerShell, which is part of the OS.
-/// The release therefore needs no Python, AutoHotkey, or helper executable.
 const windowsSidikJariAutomationScript = r'''
 $ErrorActionPreference = 'Stop'
 
@@ -84,6 +80,9 @@ public static class RssgSidikJariNative {
     private static extern bool BringWindowToTop(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+
+    [DllImport("user32.dll")]
     private static extern bool SetCursorPos(int x, int y);
 
     [DllImport("user32.dll")]
@@ -130,13 +129,12 @@ public static class RssgSidikJariNative {
 
     public static void ActivateAndNormalize(IntPtr hWnd) {
         if (hWnd == IntPtr.Zero) throw new InvalidOperationException("Window handle is empty");
-        ShowWindowAsync(hWnd, 6);
-        Thread.Sleep(50);
         ShowWindowAsync(hWnd, 9);
-        SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 720, 500, 0x0040);
-        SetWindowPos(hWnd, new IntPtr(-2), 0, 0, 720, 500, 0x0040);
+        SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 680, 520, 0x0040);
+        SetWindowPos(hWnd, new IntPtr(-2), 0, 0, 680, 520, 0x0040);
         BringWindowToTop(hWnd);
         SetForegroundWindow(hWnd);
+        SwitchToThisWindow(hWnd, true);
         Thread.Sleep(200);
     }
 
