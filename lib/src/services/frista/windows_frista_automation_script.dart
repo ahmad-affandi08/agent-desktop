@@ -152,8 +152,11 @@ public static class RssgFristaNative {
     public static void ActivateAndNormalize(IntPtr hWnd, int x, int y, int width, int height) {
         if (hWnd == IntPtr.Zero) throw new InvalidOperationException("Window handle is empty");
         ShowWindowAsync(hWnd, 9);
-        SetWindowPos(hWnd, new IntPtr(-1), x, y, width, height, 0x0040);
-        SetWindowPos(hWnd, new IntPtr(-2), x, y, width, height, 0x0040);
+        // Ukuran <= 0 berarti pertahankan ukuran asli agar layout FRISTA tidak terpotong.
+        uint flags = 0x0040;
+        if (width <= 0 || height <= 0) flags |= 0x0001;
+        SetWindowPos(hWnd, new IntPtr(-1), x, y, width, height, flags);
+        SetWindowPos(hWnd, new IntPtr(-2), x, y, width, height, flags);
         BringWindowToTop(hWnd);
         SetForegroundWindow(hWnd);
         SwitchToThisWindow(hWnd, true);
@@ -216,10 +219,10 @@ public static class RssgFristaNative {
 $identifier = $env:RSSG_FRISTA_IDENTIFIER
 $titlePattern = $env:RSSG_FRISTA_WINDOW_TITLE
 
-$posX = 685
+$posX = 0
 $posY = 0
-$width = 680
-$height = 520
+$width = 0
+$height = 0
 
 if ($env:RSSG_FRISTA_POS_X) {
     [int]::TryParse($env:RSSG_FRISTA_POS_X, [ref]$posX)

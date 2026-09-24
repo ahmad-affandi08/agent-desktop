@@ -92,6 +92,13 @@ public static class RssgSidikJariNative {
     private static extern bool SetProcessDPIAware();
 
     [DllImport("user32.dll")]
+    private static extern bool SystemParametersInfo(uint action, uint param,
+        out RECT result, uint winIni);
+
+    private const int WindowWidth = 680;
+    private const int WindowHeight = 520;
+
+    [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint dx, uint dy,
         uint data, UIntPtr extraInfo);
 
@@ -130,8 +137,16 @@ public static class RssgSidikJariNative {
     public static void ActivateAndNormalize(IntPtr hWnd) {
         if (hWnd == IntPtr.Zero) throw new InvalidOperationException("Window handle is empty");
         ShowWindowAsync(hWnd, 9);
-        SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 680, 520, 0x0040);
-        SetWindowPos(hWnd, new IntPtr(-2), 0, 0, 680, 520, 0x0040);
+        // Pojok kanan bawah work area (tanpa taskbar), FRISTA menempati kiri atas.
+        int x = 0;
+        int y = 0;
+        RECT workArea;
+        if (SystemParametersInfo(0x0030, 0, out workArea, 0)) {
+            x = Math.Max(workArea.left, workArea.right - WindowWidth);
+            y = Math.Max(workArea.top, workArea.bottom - WindowHeight);
+        }
+        SetWindowPos(hWnd, new IntPtr(-1), x, y, WindowWidth, WindowHeight, 0x0040);
+        SetWindowPos(hWnd, new IntPtr(-2), x, y, WindowWidth, WindowHeight, 0x0040);
         BringWindowToTop(hWnd);
         SetForegroundWindow(hWnd);
         SwitchToThisWindow(hWnd, true);
