@@ -6,6 +6,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -23,6 +26,23 @@ jobs:
 
       - run: flutter build windows --release
 
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.value }}" installer\rssg_agent_desktop.iss
+
       - name: Zip release bundle
         run: |
           Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath rssg_agent_desktop-windows.zip
@@ -30,5 +50,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: rssg_agent_desktop-windows
-          path: rssg_agent_desktop-windows.zip
+          path: |
+            build/installer/*.exe
+            rssg_agent_desktop-windows.zip
           retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/installer/*.exe
+            rssg_agent_desktop-windows.zip

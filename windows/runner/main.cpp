@@ -5,8 +5,33 @@
 #include "flutter_window.h"
 #include "utils.h"
 
+// Shared with installer/rssg_agent_desktop.iss.
+constexpr const wchar_t kSingleInstanceMutex[] =
+    L"RSSGAgentDesktopSingleInstance";
+
+// Brings the already running instance (possibly hidden in the tray) to front.
+static void ActivateExistingInstance() {
+  HWND hwnd = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW",
+                            L"RSSG Agent Desktop");
+  if (hwnd == nullptr) {
+    hwnd = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW",
+                         L"rssg_agent_desktop");
+  }
+  if (hwnd == nullptr) return;
+  ::ShowWindow(hwnd, SW_SHOW);
+  if (::IsIconic(hwnd)) ::ShowWindow(hwnd, SW_RESTORE);
+  ::SetForegroundWindow(hwnd);
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  HANDLE single_instance = ::CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+  if (single_instance != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    ActivateExistingInstance();
+    ::CloseHandle(single_instance);
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {

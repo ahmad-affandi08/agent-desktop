@@ -27,8 +27,24 @@ flutter pub get
 flutter build windows --release
 ```
 
-Distribusikan seluruh isi folder berikut sebagai satu paket:
+## Rilis & Update ke PC Loket
 
-```text
-build\windows\x64\runner\Release\
+1. Naikkan `version` di `pubspec.yaml`, commit, lalu buat tag:
+   ```bash
+   git tag v1.2.0 && git push origin main --tags
+   ```
+2. GitHub Actions membuild `RSSG-Agent-Setup-1.2.0.exe` dan memasangnya di halaman **Releases**.
+3. Di PC loket cukup jalankan setup tersebut. Installer otomatis menutup agent yang masih berjalan
+   (termasuk yang tersembunyi di tray), menimpa file, lalu menjalankannya kembali — tanpa restart PC
+   dan tanpa hak admin. Pengaturan di tab **Settings** tetap tersimpan.
+
+Installer dipasang per-user di `%LOCALAPPDATA%\Programs\RSSG Agent Desktop` dan (opsional) autostart
+saat Windows menyala. Aplikasi bersifat *single instance*: membuka exe lagi hanya memunculkan window
+yang sudah berjalan.
+
+Build installer secara lokal (Windows, Inno Setup 6):
+
+```powershell
+flutter build windows --release
+iscc /DAppVersion=1.2.0 installer\rssg_agent_desktop.iss
 ```
