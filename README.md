@@ -38,8 +38,9 @@ flutter build windows --release
    (termasuk yang tersembunyi di tray), menimpa file, lalu menjalankannya kembali — tanpa restart PC
    dan tanpa hak admin. Pengaturan di tab **Settings** tetap tersimpan.
 
-Installer dipasang per-user di `%LOCALAPPDATA%\Programs\RSSG Agent Desktop` dan (opsional) autostart
-saat Windows menyala. Aplikasi bersifat *single instance*: membuka exe lagi hanya memunculkan window
+Installer langsung menimpa folder agent yang sedang berjalan (termasuk hasil copy manual versi lama).
+Jika agent tidak berjalan, dipakai folder install sebelumnya, atau `%LOCALAPPDATA%\Programs\RSSG Agent Desktop`
+untuk instalasi baru. Tersedia opsi autostart saat Windows menyala. Aplikasi bersifat *single instance*: membuka exe lagi hanya memunculkan window
 yang sudah berjalan.
 
 Build installer secara lokal (Windows, Inno Setup 6):

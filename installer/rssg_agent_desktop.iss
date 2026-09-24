@@ -18,10 +18,12 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher=RSUD dr. Soeratno Gemolong
-; Per-user install: tanpa UAC, dan update selalu ke folder yang sama.
+; Per-user install tanpa UAC. Folder tujuan = folder agent yang sedang
+; berjalan (copy manual lama ikut tertimpa), lalu folder install sebelumnya.
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#AppName}
-DisableDirPage=yes
+DefaultDirName={code:GetDefaultDir}
+UsePreviousAppDir=no
+DisableDirPage=auto
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
 UsePreviousTasks=yes
@@ -60,6 +62,59 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Filename: "{app}\{#AppExe}"; Description: "Jalankan {#AppName}"; WorkingDir: "{app}"; Flags: nowait postinstall
 
 [Code]
+const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{6F2B8C4E-3A1D-4E7B-9C55-2D8E41A7B913}_is1';
+
+var
+  DetectedDir: String;
+
+// Folder exe agent yang sedang berjalan, kosong jika tidak ada.
+function FindRunningAgentDir: String;
+var
+  OutFile: String;
+  ExePath: AnsiString;
+  ResultCode: Integer;
+begin
+  Result := '';
+  OutFile := ExpandConstant('{tmp}\agent_path.txt');
+  Exec('powershell.exe',
+    '-NoProfile -NonInteractive -Command "(Get-Process -Name rssg_agent_desktop ' +
+    '-ErrorAction SilentlyContinue | Select-Object -First 1).Path | ' +
+    'Out-File -Encoding ascii -FilePath ''' + OutFile + '''"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if LoadStringFromFile(OutFile, ExePath) then
+  begin
+    ExePath := Trim(ExePath);
+    if (ExePath <> '') and FileExists(ExePath) then
+      Result := ExtractFileDir(ExePath);
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  DetectedDir := FindRunningAgentDir;
+  Result := True;
+end;
+
+function GetDefaultDir(Param: String): String;
+var
+  PreviousDir: String;
+begin
+  if DetectedDir <> '' then
+    Result := DetectedDir
+  else if RegQueryStringValue(HKCU, UninstallKey, 'Inno Setup: App Path', PreviousDir)
+    and (PreviousDir <> '') then
+    Result := PreviousDir
+  else
+    Result := ExpandConstant('{localappdata}\Programs\{#AppName}');
+end;
+
+// Folder agent lama sudah terdeteksi: langsung timpa tanpa bertanya.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = wpSelectDir) and (DetectedDir <> '');
+end;
+
 procedure KillRunningAgent;
 var
   ResultCode: Integer;
